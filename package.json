@@ -12,8 +12,6 @@
     "blessed": "0.0.51",
     "blessed-contrib": "^1.0.14",
     "colors": "^1.0.3",
-    "highland": "^2.4.0",
-    "inquirer": "^0.8.2",
-    "terminal-menu": "^2.1.1"
+    "highland": "^2.4.0"
   }
 }
