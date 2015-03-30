@@ -1,0 +1,19 @@
+{
+  "name": "ltfhc-maintenance",
+  "version": "1.0.0",
+  "description": "Run maintenance tasks from within a virtual machine for the LTFHC EMR system developped by iilab",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jun Matsushita",
+  "license": "Apache",
+  "dependencies": {
+    "blessed": "0.0.51",
+    "blessed-contrib": "^1.0.14",
+    "colors": "^1.0.3",
+    "highland": "^2.4.0",
+    "inquirer": "^0.8.2",
+    "terminal-menu": "^2.1.1"
+  }
+}
