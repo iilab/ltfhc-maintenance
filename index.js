@@ -127,10 +127,11 @@ var run = function(action) {
   switch(action) {
     case "ping":
         log.log("--- " + action + " running --- ");
-        running = spawn('ping', ['-c 4', 'localhost']);
+//        running = spawn('ping', ['-c 4', 'localhost']);
+        running = spawn('ansible',['all','-i','"192.168.168.2,"','-m ping'])
         break;
     case "diag":
-        running = spawn('ls', ['-la']);
+        running = spawn('/vagrant/ltfhc-config/run.sh', []);
         break;
     default:
         return "{red-fg}failed{/red-fg}"
