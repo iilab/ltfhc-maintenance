@@ -13,14 +13,34 @@ The install script should install a shortcut to start the app. Otherwise it can 
 
 ### Connectivity
 
+ - The connectivity scripts do the following checks
+
+** Need to test how slow/fast a wifi based download/upgrade is **
+
+     + Check that the network is available (ping localhost)
+     + Try via the wifi port. Check if a wifi connection is on. 
+         * If yes, check if the laptop is connected to the 'health' SSID.
+             - If yes, try to ping the server. (192.168.42.1)
+             - If not, then try to connect to 'health' SSID
+                 + If yes, then try to ping the server. (192.168.42.1)
+                     * If yes, go to diagnostics
+         * If not, then continue
+     + Try via the ethernet port. Check if an ethernet connection is on.
+         * for each of the following IP pairs (172.16.99.2/172.16.99.1, 172.16.99.1/172.16.99.2)
+         * If yes, check if the ip address of the interface is ()
 
 ### Diagnostic
 
 
 ### Upgrade 
 
+ - 
 
 ### Data Download
+
+
+### District Data Upload and Upgrade
+
 
 
 ### Options
@@ -32,3 +52,13 @@ The install script should install a shortcut to start the app. Otherwise it can 
  - Operate: Use arrows and enter key.
  - Report: Drag and drop log file in email.
 
+## Troubleshooting
+
+If there's a problem with connecting:
+  - Check the properties of the interface. On W7, open Network Center, click on the interface to get a status overview, then on the Properties button. You will get a list of services, protocols and adapters. That list should contain the VirtualBox Bridged Adapter service.
+  - 
+
+## Development
+
+While in the ltfhc-maintenance folder run 
+```node index.js```

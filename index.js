@@ -8,6 +8,7 @@ var blessed = require('blessed')
   , contrib = require('blessed-contrib')
   , util = require('util')
   , _ = require('highland')
+  , async = require('async')
   , screen = blessed.screen(
      {
        autoPadding: true,
@@ -18,7 +19,7 @@ var blessed = require('blessed')
   , help
   , log
   , actions
-  , running;
+  , running; // the currently running spawned children_process
 
 screen.title = 'LTFHC EMR - Maintenance';
 
@@ -118,43 +119,130 @@ actions.setData( { headers: ['Action', 'Result']
                  })
                });
 
+// Alert box (hidden at start)
+var alert = blessed.message({
+  top: 'center',
+  left: 'center',
+  width: '40%',
+  height: '40%',
+  label: 'Error',
+  tags: true,
+  border: {
+    type: 'line'
+  },
+  style: {
+    fg: 'white',
+    bg: 'red',
+    border: {
+      fg: '#f0f0f0'
+    },
+    hover: {
+      bg: 'green'
+    }
+  }
+});
+
 
 // Render the screen.
 screen.render();
 
-var run = function(action) {
-  log.log('action: ' + action)
-  switch(action) {
-    case "ping":
-        log.log("--- " + action + " running --- ");
-//        running = spawn('ping', ['-c 4', 'localhost']);
-        running = spawn('ansible',['all','-i','"192.168.168.2,"','-m ping'])
-        break;
-    case "diag":
-        running = spawn('/vagrant/ltfhc-config/run.sh', []);
-        break;
-    default:
-        return "{red-fg}failed{/red-fg}"
+// Should try to log to disk now before continuing.
+
+try {
+
+  var run = function(action) {
+    log.log('action: ' + action)
+
+    function ping_localhost(callback, results) {
+          running = spawn('ping', ['-c 4', 'localhost']);
+          running.on('close', function (code) {
+            callback(null, code)
+            log.log("---  result: " + code);
+          });
+    }
+
+    function net_get_local_ip(callback, results) {
+          running = spawn('ping', ['-c 4', 'localhost']);
+          running.on('close', function (code) {
+            callback(null, code)
+            log.log("---  result: " + code);
+          });
+    }
+
+    function ansible_ping(callback, results) {
+  //        running = spawn('ping', ['-c 4', 'localhost']);
+          running = spawn('ansible',['all','-i','"192.168.168.2,"','-m ping'])
+          running.on('close', function (code) {
+            callback(null, code)
+            log.log("---  result: " + code);
+          });
+    }
+
+    switch(action) {
+      case "ping":
+          log.log("--- " + action + " running --- ");
+          async.auto({
+              net_ping_self: [net_ping_self],
+              net_ping: ['net_ping_self', net_ping],
+              ansible_ping: ['net_ping', ansible_ping]
+          }, function (err, results) {
+              if (err) {
+                  return "{red-fg}" + err + "{/red-fg}"
+              }
+              // Callback with the row.
+              success("ping", results.ip);
+          });
+          break;
+      case "diag":
+          running = spawn('/vagrant/ltfhc-config/run.sh', []);
+          break;
+      default:
+          return "{red-fg}failed{/red-fg}"
+    }
+
+    _(running.stdout).each(function(i){
+        var str = i.toString()
+//        log.log(str)
+        var arr = str.match(/.+([\n\r]$)/gm);
+        _(arr).each(function(i) {
+          log.log(i);
+        })
+      });
+
+    _(running.stderr).each(function(i){
+        var str = i.toString()
+        var arr = str.match(/.+([\n\r]$)/gm);
+        _(arr).each(function(i) {
+          log.log("{red-fg}" + i + "{/red-fg}");
+        })
+      });
+
   }
 
-  _(running.stdout).each(function(i){
-      var str = i.toString()
-      var arr = str.match(/^.*([\n\r]+|$)/gm);
-      _(arr).each(function(i) {
-        log.log(i);
-      })
-    });
+  function success(cmd, result) {
+    try {
+      actions.setData( { headers: ['Action', 'Result']
+                   , data: actions_config.map(function(n){
+                        return (n.cmd == cmd)? [n.label, result] : [n.label, n.state]
+                     })
+                   });
+    }
+    catch(err) {
+      screen.append(alert)
+      alert.display(err.stack, 0);
+      screen.render();
+      //TODO: Log error to file.
+    }
+    screen.render();
+  }
 
-  _(running.stderr).each(function(i){
-      var str = i.toString()
-      var arr = str.match(/^.*([\n\r]+|$)/gm);
-      _(arr).each(function(i) {
-        log.log("{red-fg}" + i + "{/red-fg}");
-      })
-    });
-
-  running.on('close', function (code) {
-    log.log("---  result: " + code);
-  });
 }
+catch(err) {
+  // Create a box perfectly centered horizontally and vertically.
 
+  // Append our box to the screen.
+  alert.error(err.message, 0);
+
+  //screen.render();
+
+}
