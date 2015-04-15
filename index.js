@@ -153,44 +153,20 @@ try {
   var run = function(action) {
     log.log('action: ' + action)
 
-    function ping_localhost(callback, results) {
-          running = spawn('ping', ['-c 4', 'localhost']);
-          running.on('close', function (code) {
-            callback(null, code)
-            log.log("---  result: " + code);
-          });
-    }
-
-    function net_get_local_ip(callback, results) {
-          running = spawn('ping', ['-c 4', 'localhost']);
-          running.on('close', function (code) {
-            callback(null, code)
-            log.log("---  result: " + code);
-          });
-    }
-
-    function ansible_ping(callback, results) {
-  //        running = spawn('ping', ['-c 4', 'localhost']);
-          running = spawn('ansible',['all','-i','"192.168.168.2,"','-m ping'])
-          running.on('close', function (code) {
-            callback(null, code)
-            log.log("---  result: " + code);
-          });
-    }
-
     switch(action) {
       case "ping":
           log.log("--- " + action + " running --- ");
           async.auto({
-              net_ping_self: [net_ping_self],
-              net_ping: ['net_ping_self', net_ping],
-              ansible_ping: ['net_ping', ansible_ping]
+              ping_localhost: [ping_localhost],
+              ping_local_ip: ['ping_localhost', ping_local_ip],
+              ping_ansible: ['ping_local_ip', ping_ansible]
           }, function (err, results) {
               if (err) {
                   return "{red-fg}" + err + "{/red-fg}"
               }
-              // Callback with the row.
-              success("ping", results.ip);
+              // Callback with the results.
+              log.log(results.toString())
+              success("ping", results.toString());
           });
           break;
       case "diag":
@@ -200,49 +176,90 @@ try {
           return "{red-fg}failed{/red-fg}"
     }
 
-    _(running.stdout).each(function(i){
-        var str = i.toString()
-//        log.log(str)
-        var arr = str.match(/.+([\n\r]$)/gm);
-        _(arr).each(function(i) {
-          log.log(i);
-        })
-      });
+    // Actions
 
-    _(running.stderr).each(function(i){
-        var str = i.toString()
-        var arr = str.match(/.+([\n\r]$)/gm);
-        _(arr).each(function(i) {
-          log.log("{red-fg}" + i + "{/red-fg}");
-        })
-      });
-
-  }
-
-  function success(cmd, result) {
-    try {
-      actions.setData( { headers: ['Action', 'Result']
-                   , data: actions_config.map(function(n){
-                        return (n.cmd == cmd)? [n.label, result] : [n.label, n.state]
-                     })
-                   });
+    function ping_localhost(callback, results) {
+      spawn_sh('ping -c 4 localhost', callback);
     }
-    catch(err) {
-      screen.append(alert)
-      alert.display(err.stack, 0);
+
+    function ping_local_ip(callback, results) {
+      spawn_sh('ping -c 4 192.168.2.100', callback);
+    }
+
+    function ping_ansible(callback, results) {
+      spawn_sh('ansible all -i "127.0.0.1," -m ping --connection local', callback);
+    }
+
+    // Utility functions
+
+    var spawn_opts ={ 
+      cwd: "/home/vagrant",
+      env: process.env
+    }
+
+    function log_close(code) {
+      if (code == 0) {
+        log.log("---  success  --- (" + code + ")");
+      } else {
+        log.log("{red-fg}---  error --- (" + code + "){/red-fg}"); 
+      };
+    }
+
+    function spawn_sh(command, callback) {
+      log.log('command: ' + command);
+      p = spawn('bash',['-c', command]);
+      hook_std(p);
+      p.on('close', function(code) {
+            callback(null, code)
+            log_close(code)
+      });
+    }
+
+    function success(cmd, result) {
+      try {
+        actions.setData( { headers: ['Action', 'Result']
+                     , data: actions_config.map(function(n){
+                          return (n.cmd == cmd)? [n.label, result] : [n.label, n.state]
+                       })
+                     });
+      }
+      catch(err) {
+        screen.append(alert)
+        alert.display(err.stack, 0);
+        screen.render();
+        //TODO: Log error to file.
+      }
       screen.render();
-      //TODO: Log error to file.
     }
-    screen.render();
-  }
 
+    function hook_std(process) {
+      _(process.stdout).each(function(i){
+        var str = i.toString()
+        var arr = str.match(/.+([\n])/gm);
+        if (arr) {
+          _(arr).each(function(i) {
+            log.log(i);
+          })
+        } else {
+          log.log(str)
+        }
+      });
+
+      _(process.stderr).each(function(i){
+        var str = i.toString()
+        var arr = str.match(/.+([\n])/gm);
+        if (arr) {
+          _(arr).each(function(i) {
+            log.log("{red-fg}" + i + "{/red-fg}");
+          })
+        } else {
+          log.log(str)
+        }
+      });
+    }
+  }
 }
 catch(err) {
-  // Create a box perfectly centered horizontally and vertically.
-
-  // Append our box to the screen.
   alert.error(err.message, 0);
-
-  //screen.render();
-
+  screen.render();
 }
