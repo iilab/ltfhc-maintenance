@@ -21,29 +21,27 @@ var blessed = require('blessed')
   , actions
   , running; // the currently running spawned children_process
 
+var debug = false;
+
 screen.title = 'LTFHC EMR - Maintenance';
 
 // actions
 
-var actions_config = [ { label: "Connectivity"
-                       , state: "Please run."
-                       , cmd: "ping"
-                       }
-                     , { label: "Diagnostic" 
-                       , state: "Please run."
-                       , cmd: "diag"} 
-                     ]
-
+var actions_data = { headers: [ "Action",        "Status"]
+                   , data:  [ [ "Connectivity",  "Run to connect to the server." ]
+                            , [ "Data Download", "Run to download data." ]
+                            , [ "Upgrade",       "Run to upgrade the EMR software." ]
+                            , [ "Diagnostics",   "Run to test the EMR software." ]
+                            ]
+                   }
 
 /**
  * Action Event
  */
 
 screen.key('enter', function(ch, key) {
-  //var val = "Selected " + util.inspect(actions.rows, {showHidden: false, depth: 2});
-  //arr = val.match(/^.*([\n\r]+|$)/gm);
   var sel = actions.rows.selected.toString();
-  var result = run(actions_config[sel].cmd);
+  var result = run(actions.data.data[sel][0]);
   screen.render();
 })
 
@@ -63,7 +61,11 @@ screen.key(['escape', 'q', 'C-c'], function(ch, key) {
  * Widget Grid
  */
 
-var grid = new contrib.grid({rows: 4, cols: 2})
+if (debug) {
+  var grid = new contrib.grid({rows: 4, cols: 2})
+} else {
+  var grid = new contrib.grid({rows: 4, cols: 1})  
+}
 
 // Actions Widget
 
@@ -95,17 +97,27 @@ grid.set(3, 0, 1, 1, blessed.box, {
 
 // Log Widget
 
-grid.set(0, 1, 1, 4, contrib.log, { fg: "green"
-  , selectedFg: "green"
-  , label: 'Server Log'
-  , bufferLength: 120
-  , tags: true})
+if (debug) {
+  grid.set(0, 1, 1, 4, contrib.log, { fg: "green"
+    , selectedFg: "green"
+    , label: 'Server Log'
+    , bufferLength: 120
+    , tags: true})
+}
 
 // Apply grid layout
 
 grid.applyLayout(screen)
 
-log = grid.get(0,1)
+if (debug) {
+  log = grid.get(0,1)
+} else {
+  log = contrib.log({ fg: "green"
+    , selectedFg: "green"
+    , label: 'Server Log'
+    , bufferLength: 120
+    , tags: true})
+}
 
 help = grid.get(3,0)
 
@@ -113,11 +125,7 @@ actions = grid.get(0,0)
 
 // table
 
-actions.setData( { headers: ['Action', 'Result']
-               , data: actions_config.map(function(n){
-                    return [n.label, n.state]
-                 })
-               });
+actions.setData(actions_data);
 
 // Alert box (hidden at start)
 var alert = blessed.message({
@@ -132,9 +140,9 @@ var alert = blessed.message({
   },
   style: {
     fg: 'white',
-    bg: 'red',
+    bg: 'black',
     border: {
-      fg: '#f0f0f0'
+      fg: 'red'
     },
     hover: {
       bg: 'green'
@@ -151,22 +159,21 @@ screen.render();
 try {
 
   var run = function(action) {
-    log.log('action: ' + action)
-
     switch(action) {
-      case "ping":
-          log.log("--- " + action + " running --- ");
+      case "Connectivity":
+          action_start(action);
           async.auto({
-              ping_localhost: [ping_localhost],
-              ping_local_ip: ['ping_localhost', ping_local_ip],
-              ping_ansible: ['ping_local_ip', ping_ansible]
+              local_ping: [local_ping],
+              local_ansible: ['local_ping', local_ansible],
+              server_ping: ['local_ansible', server_ping],
+              server_ansible: ['server_ping', server_ansible]
           }, function (err, results) {
               if (err) {
-                  return "{red-fg}" + err + "{/red-fg}"
+                action_error(action, results);
+              } else {
+                // Callback with the results.
+                action_success(action, results);
               }
-              // Callback with the results.
-              log.log(results.toString())
-              success("ping", results.toString());
           });
           break;
       case "diag":
@@ -176,19 +183,96 @@ try {
           return "{red-fg}failed{/red-fg}"
     }
 
-    // Actions
+    /*
+    / Actions
+    /***/
 
-    function ping_localhost(callback, results) {
-      spawn_sh('ping -c 4 localhost', callback);
+    // Connectivity
+
+    function local_ping(callback, results) {
+      proc = spawn_sh("Connectivity", 'ping -i 0.5 -c 4 localhost');
+      proc.on('close', function(code) {
+        if (code != 0) {
+          log_log("ping", "{red-fg}---  command error --- (" + code + "){/red-fg}"); 
+          callback(code, code)
+        } else {
+          log_log("ping", "---  command success  --- (" + code + ")");
+          callback(null, code)
+        }
+      });
     }
 
-    function ping_local_ip(callback, results) {
-      spawn_sh('ping -c 4 192.168.2.100', callback);
+    function local_ansible(callback, results) {
+      proc = spawn_sh("Connectivity", 'ansible all -i "127.0.0.1," -m ping --connection local');
+      proc.on('close', function(code) {
+        if (code != 0) {
+          callback(code, code)
+          log_log("ping", "{red-fg}---  command error --- (" + code + "){/red-fg}"); 
+        } else {
+          callback(null, code)
+          log_log("ping", "---  command success  --- (" + code + ")");
+        }
+      });
     }
 
-    function ping_ansible(callback, results) {
-      spawn_sh('ansible all -i "127.0.0.1," -m ping --connection local', callback);
+    function server_ping(callback, results) {
+      proc = spawn_sh("Connectivity", 'ping -i 0.5 -c 4 192.168.42.1');
+      proc.on('close', function(code) {
+        if (code != 0) {
+          callback(code, code)
+          log_log("ping", "{red-fg}---  command error --- (" + code + "){/red-fg}"); 
+        } else {
+          callback(null, code)
+          log_log("ping", "---  command success  --- (" + code + ")");
+        }
+      });
     }
+
+    function server_ansible(callback, results) {
+      proc = spawn_sh("Connectivity", 'ansible all -i "192.168.42.1," -m ping');
+      proc.on('close', function(code) {
+        if (code != 0) {
+          callback(code, code)
+          log_log("ping", "{red-fg}---  command error --- (" + code + "){/red-fg}"); 
+        } else {
+          callback(null, code)
+          log_log("ping", "---  command success  --- (" + code + ")");
+        }
+      });
+    }
+
+    function server_get_name(callback, results) {
+      proc = spawn_sh("Connectivity", 'ansible all -i "192.168.42.1," -m ping');
+      proc.on('close', function(code) {
+        if (code != 0) {
+          callback(code, code)
+          log_log("ping", "{red-fg}---  command error --- (" + code + "){/red-fg}"); 
+        } else {
+          callback(null, code)
+          log_log("ping", "---  command success  --- (" + code + ")");
+        }
+      });
+    }
+
+    // Data Download
+
+    function data_download(callback, results) {
+      proc = spawn_sh("Data Download", 'curl -X GET https://www.health/emr/_all_docs\?include_docs\=true');
+      proc.on('close', function(code) {
+        if (code != 0) {
+          callback(code, code)
+          log_log("ping", "{red-fg}---  command error --- (" + code + "){/red-fg}"); 
+        } else {
+          callback(null, code)
+          log_log("ping", "---  command success  --- (" + code + ")");
+        }
+      });
+    }
+
+
+    // Upgrade
+
+    // Diagnostics
 
     // Utility functions
 
@@ -197,69 +281,101 @@ try {
       env: process.env
     }
 
-    function log_close(code) {
-      if (code == 0) {
-        log.log("---  success  --- (" + code + ")");
-      } else {
-        log.log("{red-fg}---  error --- (" + code + "){/red-fg}"); 
-      };
-    }
-
-    function spawn_sh(command, callback) {
-      log.log('command: ' + command);
+    function spawn_sh(action, command) {
+      log_log(action, 'command: ' + command);
       p = spawn('bash',['-c', command]);
-      hook_std(p);
-      p.on('close', function(code) {
-            callback(null, code)
-            log_close(code)
-      });
+      hook_std(action, p);
+      return p;
     }
 
-    function success(cmd, result) {
-      try {
-        actions.setData( { headers: ['Action', 'Result']
-                     , data: actions_config.map(function(n){
-                          return (n.cmd == cmd)? [n.label, result] : [n.label, n.state]
-                       })
-                     });
-      }
-      catch(err) {
-        screen.append(alert)
-        alert.display(err.stack, 0);
-        screen.render();
-        //TODO: Log error to file.
-      }
+    function action_start(action) {
+      log_log(action, "---  action " + action  + " running --- ")
+      actions.setData( 
+        { headers: actions.data.headers
+        , data: actions.data.data.map(function(v,i){
+            return (actions.data.data[i][0] == action)? [action, "Running "] : v
+          })
+        }
+      );
+    }
+
+    function action_success(action, results) {
+      message = util.inspect(results, false, null).toString()
+      log_log(action, "--- action " + action + " success --- " + join_lines(message))
+      actions.setData( 
+        { headers: actions.data.headers
+        , data: actions.data.data.map(function(v,i){
+            return (actions.data.data[i][0] == action)? [action, join_lines(message)] : v
+          })
+        });
       screen.render();
     }
 
-    function hook_std(process) {
+    function action_error(action, results) {
+      var message = util.inspect(results, false, null).toString()
+      log.log(action, "{red-fg}--- action " + action + " error --- " + join_lines(message) + "{/red-fg}")
+      actions.setData( 
+        { headers: actions.data.headers
+        , data: actions.data.data.map(function(v,i){
+            return (actions.data.data[i][0] == action)? [action, join_lines(message)] : v
+          })
+        }
+      );
+      screen.render();
+    }
+
+    function join_lines(str) {
+      var arr = str.match(/[^\r\n]+/gm);
+        if (arr) {
+          return arr.join(" ");
+        } else {
+          return str
+        }
+    }
+
+
+    function hook_std(action, process) {
       _(process.stdout).each(function(i){
         var str = i.toString()
-        var arr = str.match(/.+([\n])/gm);
+        var arr = str.match(/[^\r\n]+/gm);
         if (arr) {
           _(arr).each(function(i) {
-            log.log(i);
+            log_log(action, i);
           })
         } else {
-          log.log(str)
+          log_log(action, str)
         }
       });
 
-      _(process.stderr).each(function(i){
+      _(process.stderr).each(action, function(i){
         var str = i.toString()
-        var arr = str.match(/.+([\n])/gm);
+        var arr = str.match(/[^\r\n]+/gm);
         if (arr) {
           _(arr).each(function(i) {
-            log.log("{red-fg}" + i + "{/red-fg}");
+            log_log(action, "{red-fg}" + i + "{/red-fg}");
           })
         } else {
-          log.log(str)
+          log_log(action, str)
         }
       });
+    }
+
+    function log_log(action, message) {
+      log.log(message);
+      // TODO: log to disk
+      actions.setData( 
+        { headers: actions.data.headers
+        , data: actions.data.data.map(function(v,i){
+            return (actions.data.data[i][0] == action)? [action, actions.data.data[i][1] + "."] : v
+          })
+        }
+      );
+      screen.render();
     }
   }
 }
 catch(err) {
+  screen.append(alert)
   alert.error(err.message, 0);
   screen.render();
 }
