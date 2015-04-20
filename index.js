@@ -542,7 +542,7 @@ try {
 
     function server_ansible_wifi(callback, results) {
       var proc = null;
-      proc = spawn_sh("Connect (WiFi)", "server_ansible", 'ansible -i /vagrant/hosts_wifi test_wifi -m ping', callback );
+      proc = spawn_sh("Connect (WiFi)", "server_ansible", 'ansible -i /vagrant/hosts_wifi.sh test_wifi -m ping', callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -570,7 +570,7 @@ try {
 
     function server_ansible_lan(callback, results) {
       var proc = null;
-      proc = spawn_sh("Connect (WiFi)", "server_ansible", 'ansible -i /vagrant/hosts_lan test_lan -m ping', callback );
+      proc = spawn_sh("Connect (WiFi)", "server_ansible", 'ansible -i /vagrant/hosts_lan.sh test_lan -m ping', callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -585,7 +585,7 @@ try {
  
     function server_get_name_wifi(callback, results) {
       var proc = null;
-      proc = spawn_sh("Connect (WiFi)", "server_get_name", "ansible -i /vagrant/hosts_wifi test_wifi -m setup -o -a 'filter=ansible_hostname' | awk -F'>>' '{print $2}' | jq -r '. | .ansible_facts.ansible_hostname'", callback );
+      proc = spawn_sh("Connect (WiFi)", "server_get_name", "ansible -i /vagrant/hosts_wifi.sh test_wifi -m setup -o -a 'filter=ansible_hostname' | awk -F'>>' '{print $2}' | jq -r '. | .ansible_facts.ansible_hostname'", callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -599,7 +599,7 @@ try {
 
     function server_get_name_lan(callback, results) {
       var proc = null;
-      proc = spawn_sh("Connect", "server_get_name", "ansible -i /vagrant/hosts_lan test_lan -m setup -o -a 'filter=ansible_hostname' | awk -F'>>' '{print $2}' | jq -r '. | .ansible_facts.ansible_hostname'", callback );
+      proc = spawn_sh("Connect", "server_get_name", "ansible -i /vagrant/hosts_lan.sh test_lan -m setup -o -a 'filter=ansible_hostname' | awk -F'>>' '{print $2}' | jq -r '. | .ansible_facts.ansible_hostname'", callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -775,7 +775,7 @@ try {
 
     function diagnostics(callback, results) {
       var proc = null;
-      proc = spawn_sh("Diagnostics", "diagnostics", 'cd /vagrant/ltfhc-config; ansible-playbook -i /vagrant/hosts_' + server_connection + ' playbook/site.yml -t diagnose -l ' + server_hostname, callback );
+      proc = spawn_sh("Diagnostics", "diagnostics", 'cd /vagrant/ltfhc-config; ansible-playbook -i /vagrant/hosts_' + server_connection + '.sh playbook/site.yml -t diagnose -l ' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -789,7 +789,7 @@ try {
 
     function reports(callback, results) {
       var proc = null;
-      proc = spawn_sh("Diagnostics", "reports", 'tar cvzf /vagrant/hosts_' + server_connection + ' playbook/site.yml -t diagnose -l ' + server_hostname, callback );
+      proc = spawn_sh("Diagnostics", "reports", 'tar cvzf /vagrant/lthfc-config/reports/' + server_connection + ' ' + server_hostname + '.tgz', callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
