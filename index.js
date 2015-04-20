@@ -24,7 +24,7 @@ var blessed = require('blessed')
   , running // the currently running spawned children_process
   , running_stdout;
 
-var debug = true;
+var debug = process.env.DEBUG || false;
 
 var server_ip = null,
     server_connection = null,
