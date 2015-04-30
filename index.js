@@ -484,7 +484,7 @@ try {
                     message = "{red-fg}Problem while configuring the upgrade.{/red-fg}"
                     break;
                   case "test_emr_version":
-                    message = "{red-fg}This script hasn't been tested for upgrading other EMR versions than 0.4.2.{/red-fg}"
+                    message = "{red-fg}Wrong version. This script hasn't been tested for upgrading other EMR versions than 0.4.2." + results.test_emr_version + "{/red-fg}"
                     break;
                   case "upgrade":
                     message = "{red-fg}CRITICAL ERROR: Problem during the EMR upgrade.{/red-fg}"
@@ -775,14 +775,19 @@ try {
 
     function test_emr_version(callback, results) {
       var proc = null;
-      proc = spawn_sh("Upgrade", "test_emr_version", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\"0.4.2\"\'', callback);
+      proc = spawn_sh("Upgrade", "test_emr_version", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":' | awk -F\'\\",\\"\' \'{print $2}\' | awk -F\'\\":\\"\' \'{print $2}\' ', callback);
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("test_emr_version", code)
+          callback("test_emr_version", running_stdout)
         } else {
-          log_log("--- command success  --- (" + code + ")");
-          callback(null, true)
+          if (running_stdout == "4.2.0") {
+            log_log("--- command success  --- (" + code + ")");
+            callback(null, running_stdout)
+          } else {
+            log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+            callback("test_emr_version", running_stdout)
+          }
         }
       });
     }
