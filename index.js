@@ -326,23 +326,23 @@ try {
                 _(results).every(function(val, key) {
                   switch(key) {
                     case "local_ping":
-                      message = (val != 0)?"{red-fg}Local network stack problem. Check that the network is enabled.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Local network stack problem; Check that the network is enabled.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "local_ansible":
-                      message = (val != 0)?"{red-fg}Maintenance software problem. Check that you use the latest ltfhc-maintenance.box.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Maintenance software problem; Check that you use the latest ltfhc-maintenance.box.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "server_ping_wifi":
-                      message = (val != 0)?"{red-fg}Cannot contact the server. Check that you are connected to the 'health' wifi network.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot contact the server; Check that you are connected to the 'health' wifi network.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "server_ansible_wifi":
-                      message = (val != 0)?"{red-fg}Cannot log into the server. Check that the hosts file is present.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot log into the server; Check that the hosts file is present.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "server_get_name_wifi":
-                      message = (val != 0)?"{red-fg}Cannot get the server name. Please try again.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot get the server name; Please try again.{/red-fg}":""
                       return (val == 0);
                       break;                      
                   }
@@ -382,23 +382,23 @@ try {
                 _(results).every(function(val, key) {
                   switch(key) {
                     case "local_ping":
-                      message = (val != 0)?"{red-fg}Local network stack problem. Check that the network is enabled.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Local network stack problem; Check that the network is enabled.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "local_ansible":
-                      message = (val != 0)?"{red-fg}Maintenance software problem. Check that you use the latest ltfhc-maintenance.box.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Maintenance software problem; Check that you use the latest ltfhc-maintenance.box.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "server_ping_lan":
-                      message = (val != 0)?"{red-fg}Cannot contact the server. Check that you are connected to server's LAN port.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot contact the server; Check that you are connected to server's LAN port.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "server_ansible_lan":
-                      message = (val != 0)?"{red-fg}Cannot log into the server. Check that the hosts file is present.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot log into the server; Check that the hosts file is present.{/red-fg}":""
                       return (val == 0);
                       break;
                     case "server_get_name_lan":
-                      message = (val != 0)?"{red-fg}Cannot get the server name. Please try again.{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot get the server name; Please try again.{/red-fg}":""
                       return (val == 0);
                       break;                      
                   }
@@ -435,16 +435,16 @@ try {
               if (err) {
                 switch(err) {
                   case "test_emr":
-                    message = "{red-fg}Cannot connect to the EMR.{/red-fg}"
+                    message = "{red-fg}Cannot connect to the EMR;{/red-fg}"
                     break;
                   case "data_download":
-                    message = "{red-fg}Cannot download data.{/red-fg}"
+                    message = "{red-fg}Cannot download data;{/red-fg}"
                     break;
                   case "data_patient_count":
-                    message = "{red-fg}Cannot inspect data, are you sure this is a DRC deployment?{/red-fg}"
+                    message = "{red-fg}Cannot inspect data; Are you sure this is a DRC deployment?{/red-fg}"
                     break;
                   case "data_visit_count":
-                    message = "{red-fg}Cannot inspect data, are you sure this is a DRC deployment?{/red-fg}"
+                    message = "{red-fg}Cannot inspect data; Are you sure this is a DRC deployment?{/red-fg}"
                     break;
                 }
                 action_error(action, message);
@@ -475,22 +475,22 @@ try {
               if (err) {
                 switch(err) {
                   case "test_kansorc":
-                    message = "{red-fg}Cannot find kansorc file.{/red-fg}"
+                    message = "{red-fg}Cannot find kansorc file;{/red-fg}"
                     break;
                   case "test_emr_login":
-                    message = "{red-fg}Cannot connect via kanso and create test database.{/red-fg}"
+                    message = "{red-fg}Cannot connect via kanso and create test database;{/red-fg}"
                     break;
                   case "prepare_kanso_config":
-                    message = "{red-fg}Problem while configuring the upgrade.{/red-fg}"
+                    message = "{red-fg}Problem while configuring the upgrade;{/red-fg}"
                     break;
                   case "test_emr_version":
-                    message = "{red-fg}Wrong version. This script hasn't been tested for upgrading other EMR versions than 0.4.2." + results.test_emr_version + "{/red-fg}"
+                    message = "{red-fg}Wrong version detected (" + results.test_emr_version + "); This script hasn't been tested for upgrading other EMR versions than 0.4.2.{/red-fg}"
                     break;
                   case "upgrade":
-                    message = "{red-fg}CRITICAL ERROR: Problem during the EMR upgrade.{/red-fg}"
+                    message = "{red-fg}CRITICAL ERROR: Problem during the EMR upgrade;{/red-fg}"
                     break;
                   case "test_emr_upgrade":
-                    message = "{red-fg}CRITICAL ERROR: The EMR didn't update properly.{/red-fg}"
+                    message = "{red-fg}CRITICAL ERROR: The EMR didn't update properly;{/red-fg}"
                     break;                
                 }
                 action_error(action, message);
@@ -516,7 +516,7 @@ try {
                 _(results).every(function(val, key) {
                   switch(key) {
                     case "diagnostics":
-                      message = (val != 0)?"{red-fg}Cannot run diagnostics. Check that...{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot run diagnostics; Check that...{/red-fg}":""
                       return (val == 0);
                       break;
                   }
@@ -528,7 +528,7 @@ try {
                 // Callback with the results.
                 actions_state.diagnostics = "enabled";
                 actions_state_render(actions_state);
-                action_success(action, "Data downloaded - " + results.data_download + ".json file created");   
+                action_success(action, "Diagnostic results captured ; " + results.data_download + ".tar.gz file created");   
               }
           });
           break;          
@@ -777,16 +777,17 @@ try {
       var proc = null;
       proc = spawn_sh("Upgrade", "test_emr_version", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\' | awk -F\'\\",\\"\' \'{print $2}\' | awk -F\'\\":\\"\' \'{print $2}\' ', callback);
       proc.on('close', function(code) {
+        version_result = running_stdout.trim();
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("test_emr_version", running_stdout)
+          callback("test_emr_version", version_result)
         } else {
           if (running_stdout == "4.2.0") {
             log_log("--- command success  --- (" + code + ")");
-            callback(null, running_stdout)
+            callback(null, version_result)
           } else {
             log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-            callback("test_emr_version", running_stdout)
+            callback("test_emr_version", version_result)
           }
         }
       });
@@ -906,12 +907,12 @@ try {
       actions.setData( 
         { headers: actions.data.headers
         , data: actions.data.data.map(function(v,i){
-            return (actions.data.data[i][0] == action)? [action, "{red-fg}ERROR!!!{/red-fg} " + join_lines(message).split('.')[0] + "."] : v
+            return (actions.data.data[i][0] == action)? [action, "{red-fg}ERROR!!!{/red-fg} " + join_lines(message).split(';')[0] + "."] : v
           })
         }
       );
       screen.append(alert)
-      alert.log("{red-fg}ERROR!!!{/red-fg} " + join_lines(message) + "\n\n Press the space bar to dismiss.",0);
+      alert.log("{red-fg}ERROR!!!{/red-fg} " + join_lines(message).split(';').join("\n\n") + "\n\nPress the space bar to dismiss.",0);
       alert.focus();
       screen.render();
     }
