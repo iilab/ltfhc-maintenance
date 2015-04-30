@@ -484,7 +484,11 @@ try {
                     message = "{red-fg}Problem while configuring the upgrade;{/red-fg}"
                     break;
                   case "test_emr_version":
-                    message = "{red-fg}Wrong version detected (" + results.test_emr_version + "); This script hasn't been tested for upgrading other EMR versions than 0.4.2.{/red-fg}"
+                    if (results.test_emr_version == "0.5.0") {
+                      message = "{red-fg}Already upgraded (" + results.test_emr_version + "); {/red-fg}"
+                    } else {
+                      message = "{red-fg}Wrong version detected (" + results.test_emr_version + "); This script hasn't been tested for upgrading other EMR versions than 0.4.2.{/red-fg}"
+                    }
                     break;
                   case "upgrade":
                     message = "{red-fg}CRITICAL ERROR: Problem during the EMR upgrade;{/red-fg}"
