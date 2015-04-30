@@ -56,15 +56,36 @@ var current_focus = "actions"
 screen.key('tab', function(ch, key) {
   if (current_focus == "actions") {
     current_focus = "log"
+    actions.style = { border : { type: "line"
+                               , bold: false } } ;
     log.focus();
   } else {
     current_focus = "actions"
+    actions.style = { border : { type: "line"
+                               , bold: true } } ;
     actions.focus();
   }
 //  screen.append(alert)
 //  alert.log("Focused.\n\r" + current_focus, 1);
   screen.render();
 })
+
+/*
+var help_hidden = false;
+screen.key('h', function(ch, key) {
+  if (help_hidden) {
+    grid.changeSpan(log_row, log_col, 1, log_height)
+    help.show();
+    help_hidden = false;
+    grid.applyLayout(screen)
+  } else {
+    help.hide();
+    help_hidden = true;
+    grid.changeSpan(log_row, log_col, 1, log_height_hh)
+    grid.applyLayout(screen)
+  }
+  screen.render();
+})*/
 
 // Quit on Escape, q if no action is running.
 screen.key(['escape', 'q'], function(ch, key) {
@@ -90,6 +111,7 @@ if (debug) {
   log_row=0
   log_height=4
   log_col=1
+  log_height_hh=4
 } else {
   grid_rows=5
   grid_cols=1
@@ -98,6 +120,7 @@ if (debug) {
   log_row=2
   log_height=1
   log_col=0
+  log_height_hh=3
 }
 
 /**
@@ -111,13 +134,15 @@ var grid = new contrib.grid({rows: grid_rows, cols: grid_cols})
 // grid.set(row, col, rowSpan, colSpan, obj, opts)
 grid.set(0, 0, 1, 2, contrib.table, {  keys: true
                                      , tags: true
+                                     , style : { border: { type: "line"
+                                                         , bold: true } } 
                                      , fg: 'green'
                                      , columnSpacing: [18, 12] /*or just 16*/})
 
 // Help Widget
 
 grid.set(help_row, 0, 1, help_height, blessed.box, {
-  content: '{bold}Help{/bold}\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run the Diagnostics action in order to collect important system information and identify potential problems. \n\n {bold}Keys{/bold}\n\nTo run a command, select it with the arrow keys and click enter.\n\nHit q or the esc key to exit. Use Ctrl-C if the program is stuck.\n\n Use tab to switch back and forth between the Action box and Server Log box and use the up and down keys to scroll back in the server log.',
+  content: '{bold}Help{/bold}\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run the Diagnostics action in order to collect important system information and identify potential problems. \n\n {bold}Keys{/bold}\n\nTo run a command, select it with the arrow keys and click enter.\n\nHit h to toggle this help box. \n\n Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.\n\n Use tab to switch back and forth between the Action box and Log box and use the up and down keys to scroll back in the log.',
   tags: true,
   border: {
     type: 'line'
@@ -137,11 +162,14 @@ grid.set(help_row, 0, 1, help_height, blessed.box, {
 // Log Widget
 
 grid.set(log_row, log_col, 1, log_height, blessed.scrollabletext, { fg: "green"
+  , style : { border: { bold: false }
+            , focus: { border: { bold : true } }
+            }
   , selectedFg: "green"
   , keys : true
   , scrollable : true
   , alwaysScroll : true
-  , label: 'Server Log'
+  , label: 'Log'
   , bufferLength: 120
   , tags: true})
 
@@ -931,7 +959,8 @@ process.on('uncaughtException', function (err) {
    // handle or ignore error
   screen.append(alert)
   alert.error("Unexpected error. {bold}Please send maintenance.log file to iilab.{/bold}\n\r\n\r" + err.stack, 0);
-  log.log("Unexpected error. " + err.stack);
+  log.pushLine("Unexpected error. " + err.stack);
+  log.scrollTo(log.getScrollHeight());
   alert.focus();
   screen.render();
   fs.appendFile('/vagrant/maintenance.log', new Date().toISOString() + " -- " + err.stack.toString("utf8") + "\n\r", function (err) {
