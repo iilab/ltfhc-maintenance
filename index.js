@@ -81,20 +81,20 @@ screen.key(['C-c'], function(ch, key) {
 if (debug) {
   var grid = new contrib.grid({rows: 4, cols: 2})
 } else {
-  var grid = new contrib.grid({rows: 4, cols: 1})  
+  var grid = new contrib.grid({rows: 5, cols: 1})  
 }
 
 // Actions Widget
 
 // grid.set(row, col, rowSpan, colSpan, obj, opts)
-grid.set(0, 0, 1, 3, contrib.table, {  keys: true
+grid.set(0, 0, 1, 2, contrib.table, {  keys: true
                                      , tags: true
                                      , fg: 'green'
                                      , columnSpacing: [18, 12] /*or just 16*/})
 
 // Help Widget
 
-grid.set(2, 0, 1, 1, blessed.box, {
+grid.set(2, 0, 1, 2, blessed.box, {
   content: '{bold}Help{/bold}\nTo run a command, select it with the arrow keys and click enter.\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run diganostics in order to collect important system information and identify potential problems. Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.',
   tags: true,
   border: {
@@ -120,6 +120,12 @@ if (debug) {
     , label: 'Server Log'
     , bufferLength: 120
     , tags: true})
+} else {
+  grid.set(4, 0, 1, 1, contrib.log, { fg: "green"
+    , selectedFg: "green"
+    , label: 'Server Log'
+    , bufferLength: 120
+    , tags: true})  
 }
 
 function log_log(message) {
@@ -170,7 +176,7 @@ function actions_state_render(state) {
     { headers: actions.data.headers
     , data: actions.data.data.map(function(v,i){
         if (_(state).values()[i] == "disabled") {
-          formatted_status = "{light-black-fg}" + v[1].replace(/{\/?.*?}/g, '') + "{/light-black-fg}"
+          formatted_status = "{gray-fg}" + v[1].replace(/{\/?.*?}/g, '') + "{/gray-fg}"
         } else {
           formatted_status = "{green-fg}" + v[1].replace(/{\/?.*?}/g, '') + "{/green-fg}"
         }
@@ -881,10 +887,10 @@ try {
         var arr = str.match(/[^\r\n]+/gm);
         if (arr) {
           __(arr).each(function(i) {
-            log_log("{light-black-fg}" + action + " - " + cmd + " - " + i.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/light-black-fg}");
+            log_log("{gray-fg}" + action + " - " + cmd + " - " + i.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/gray-fg}");
           })
         } else {
-          log_log("{light-black-fg}" + action + " - " + cmd + " - " + str.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/light-black-fg}")
+          log_log("{gray-fg}" + action + " - " + cmd + " - " + str.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/gray-fg}")
         }
       });
 

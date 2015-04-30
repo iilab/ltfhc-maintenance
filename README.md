@@ -17,7 +17,10 @@ The install script should install a shortcut to start the app. Otherwise it can 
 
 ** Need to test how slow/fast a wifi based download/upgrade is **
 
-     + Check that the network is available (ping localhost)
+     + Basics
+         * Check that the network is available (ping localhost)
+         * Check that ansible is installed
+         * Check that the local wifi interface is available
      + Try via the wifi port. Check if a wifi connection is on. 
          * If yes, check if the laptop is connected to the 'health' SSID.
              - If yes, try to ping the server. (192.168.42.1)
