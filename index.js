@@ -142,7 +142,7 @@ grid.set(0, 0, 1, 2, contrib.table, {  keys: true
 // Help Widget
 
 grid.set(help_row, 0, 1, help_height, blessed.box, {
-  content: '{bold}Help{/bold}\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run the Diagnostics action in order to collect important system information and identify potential problems. \n\n {bold}Keys{/bold}\n\nTo run a command, select it with the arrow keys and click enter.\n\nHit h to toggle this help box. \n\n Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.\n\n Use tab to switch back and forth between the Action box and Log box and use the up and down keys to scroll back in the log.',
+  content: '{bold}Help{/bold}\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run the Diagnostics action in order to collect important system information and identify potential problems. \n\n{bold}Keys{/bold}\n\nTo run a command, select it with the arrow keys and click enter.\n\n Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.\n\n Use tab to switch back and forth between the Action box and Log box and use the up and down keys to scroll back in the log.',
   tags: true,
   border: {
     type: 'line'
