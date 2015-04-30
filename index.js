@@ -775,7 +775,7 @@ try {
 
     function test_emr_version(callback, results) {
       var proc = null;
-      proc = spawn_sh("Upgrade", "test_emr_version", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":' | awk -F\'\\",\\"\' \'{print $2}\' | awk -F\'\\":\\"\' \'{print $2}\' ', callback);
+      proc = spawn_sh("Upgrade", "test_emr_version", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\' | awk -F\'\\",\\"\' \'{print $2}\' | awk -F\'\\":\\"\' \'{print $2}\' ', callback);
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
