@@ -47,14 +47,22 @@ var actions_data = { headers: [ "Action",        "Status"]
                    }
 
 var actions_state_init = { connect_wifi   : "enabled"    // Connect (WiFi)
-                    , connect_lan    : "enabled"    // Connect (LAN)
-                    , data_download  : "disabled"   // Data Download
-                    , upgrade        : "disabled"   // Upgrade
-                    , diagnostics    : "disabled" } // Diagnostics
+                         , connect_lan    : "enabled"    // Connect (LAN)
+                         , data_download  : "disabled"   // Data Download
+                         , upgrade        : "disabled"   // Upgrade
+                         , diagnostics    : "disabled" } // Diagnostics
 
-
+var current_focus = "actions"
 screen.key('tab', function(ch, key) {
-  screen.focusNext();
+  if (current_focus == "actions") {
+    current_focus = "log"
+    log.focus();
+  } else {
+    current_focus = "actions"
+    actions.focus();
+  }
+//  screen.append(alert)
+//  alert.log("Focused.\n\r" + current_focus, 1);
   screen.render();
 })
 
@@ -62,7 +70,7 @@ screen.key('tab', function(ch, key) {
 screen.key(['escape', 'q'], function(ch, key) {
   if ( _(actions_state).any(function(v) {return (v == "running")}) ) {
     screen.append(alert)
-    alert.log("An action is running, please wait before you exit or use Ctrl-C to force.\n\r", 2);
+    alert.log("An action is running, please wait before you exit or use Ctrl-C to force.\n\r", 0);
     alert.focus();
     return;
   }
@@ -74,15 +82,29 @@ screen.key(['C-c'], function(ch, key) {
   return process.exit(0);
 });
 
+if (debug) {
+  grid_rows=4
+  grid_cols=2
+  help_row=2
+  help_height=2
+  log_row=0
+  log_height=4
+  log_col=1
+} else {
+  grid_rows=5
+  grid_cols=1
+  help_row=3
+  help_height=2
+  log_row=2
+  log_height=1
+  log_col=0
+}
+
 /**
  * Widget Grid
  */
 
-if (debug) {
-  var grid = new contrib.grid({rows: 4, cols: 2})
-} else {
-  var grid = new contrib.grid({rows: 5, cols: 1})  
-}
+var grid = new contrib.grid({rows: grid_rows, cols: grid_cols})
 
 // Actions Widget
 
@@ -94,7 +116,7 @@ grid.set(0, 0, 1, 2, contrib.table, {  keys: true
 
 // Help Widget
 
-grid.set(2, 0, 1, 2, blessed.box, {
+grid.set(help_row, 0, 1, help_height, blessed.box, {
   content: '{bold}Help{/bold}\nTo run a command, select it with the arrow keys and click enter.\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run the Diagnostics action in order to collect important system information and identify potential problems. Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.',
   tags: true,
   border: {
@@ -114,19 +136,13 @@ grid.set(2, 0, 1, 2, blessed.box, {
 
 // Log Widget
 
-if (debug) {
-  grid.set(0, 1, 1, 4, contrib.log, { fg: "green"
-    , selectedFg: "green"
-    , label: 'Server Log'
-    , bufferLength: 120
-    , tags: true})
-} else {
-  grid.set(4, 0, 1, 1, contrib.log, { fg: "green"
-    , selectedFg: "green"
-    , label: 'Server Log'
-    , bufferLength: 120
-    , tags: true})  
-}
+grid.set(log_row, log_col, 1, log_height, contrib.log, { fg: "green"
+  , selectedFg: "green"
+  , keys : true
+  , wrapWidth: 80
+  , label: 'Server Log'
+  , bufferLength: 120
+  , tags: true})
 
 function log_log(message) {
   log.log(message);
@@ -153,13 +169,9 @@ function log_log(message) {
 
 grid.applyLayout(screen)
 
-if (debug) {
-  log = grid.get(0,1)
-} else {
-  log = grid.get(4,0)
-}
+log = grid.get(log_row,log_col)
 
-help = grid.get(2,0)
+help = grid.get(help_row,0)
 
 actions = grid.get(0,0)
 
@@ -172,7 +184,7 @@ function actions_state_render(state) {
     { headers: actions.data.headers
     , data: actions.data.data.map(function(v,i){
         if (_(state).values()[i] == "disabled") {
-          formatted_status = "{gray-fg}" + v[1].replace(/{\/?.*?}/g, '') + "{/gray-fg}"
+          formatted_status = "{white-fg}" + v[1].replace(/{\/?.*?}/g, '') + "{/white-fg}"
         } else {
           formatted_status = "{green-fg}" + v[1].replace(/{\/?.*?}/g, '') + "{/green-fg}"
         }
@@ -239,14 +251,14 @@ actions.rows.key('enter', function(ch, key) {
     var result = run(actions.data.data[sel][0]);
   } else {
     screen.append(alert)
-    alert.log("This action is disabled.\n\r", 2);
+    alert.log("This action is disabled.\n\r Make sure to connect first.", 2);
     alert.focus();
   }
   screen.render();
 })
 
 //actions.focus();
-
+actions.focus();
 // Render the screen.
 screen.render();
 
@@ -859,10 +871,13 @@ try {
       actions.setData( 
         { headers: actions.data.headers
         , data: actions.data.data.map(function(v,i){
-            return (actions.data.data[i][0] == action)? [action, "{red-fg}ERROR!!!{/red-fg} " + join_lines(message)] : v
+            return (actions.data.data[i][0] == action)? [action, "{red-fg}ERROR!!!{/red-fg} " + join_lines(message).split('.')[0] + "."] : v
           })
         }
       );
+      screen.append(alert)
+      alert.log("{red-fg}ERROR!!!{/red-fg} " + join_lines(message) + "\n\n Press the space bar to dismiss.",0);
+      alert.focus();
       screen.render();
     }
 
@@ -883,10 +898,10 @@ try {
         var arr = str.match(/[^\r\n]+/gm);
         if (arr) {
           __(arr).each(function(i) {
-            log_log("{gray-fg}" + action + " - " + cmd + " - " + i.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/gray-fg}");
+            log_log("{white-fg}" + action + " - " + cmd + " - " + i.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/white-fg}");
           })
         } else {
-          log_log("{gray-fg}" + action + " - " + cmd + " - " + str.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/gray-fg}")
+          log_log("{white-fg}" + action + " - " + cmd + " - " + str.replace(/\x1B\[([0-9](;[0-9])?)?[mGK]/g, '') + "{/white-fg}")
         }
       });
 
