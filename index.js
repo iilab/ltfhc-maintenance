@@ -95,7 +95,7 @@ grid.set(0, 0, 1, 2, contrib.table, {  keys: true
 // Help Widget
 
 grid.set(2, 0, 1, 2, blessed.box, {
-  content: '{bold}Help{/bold}\nTo run a command, select it with the arrow keys and click enter.\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run diganostics in order to collect important system information and identify potential problems. Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.',
+  content: '{bold}Help{/bold}\nTo run a command, select it with the arrow keys and click enter.\n\nChoose a connection method:\n  - (WiFi is preferable) Connect to the health network.\n  - For LAN setup the laptop IP to 172.16.99.2 and connect to LAN2 on the server.\n\r Please make sure to run the Diagnostics action in order to collect important system information and identify potential problems. Hit q or the esc key to exit. Use Ctrl-C if the program is stuck.',
   tags: true,
   border: {
     type: 'line'
@@ -156,14 +156,10 @@ grid.applyLayout(screen)
 if (debug) {
   log = grid.get(0,1)
 } else {
-  log = contrib.log({ fg: "green"
-    , selectedFg: "green"
-    , label: 'Server Log'
-    , bufferLength: 120
-    , tags: true})
+  log = grid.get(4,0)
 }
 
-help = grid.get(3,0)
+help = grid.get(2,0)
 
 actions = grid.get(0,0)
 
