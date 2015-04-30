@@ -136,16 +136,18 @@ grid.set(help_row, 0, 1, help_height, blessed.box, {
 
 // Log Widget
 
-grid.set(log_row, log_col, 1, log_height, contrib.log, { fg: "green"
+grid.set(log_row, log_col, 1, log_height, blessed.scrollabletext, { fg: "green"
   , selectedFg: "green"
   , keys : true
-  , wrapWidth: 80
+  , scrollable : true
+  , alwaysScroll : true
   , label: 'Server Log'
   , bufferLength: 120
   , tags: true})
 
 function log_log(message) {
-  log.log(message);
+  log.pushLine(message);
+  log.scrollTo(log.getScrollHeight());
   fs.appendFile('/vagrant/maintenance.log', new Date().toISOString() + " - " + message && message.replace(/{\/?.*?}/g, '').toString("utf8") + "\n\r", function (err) {
       if (err) {
         screen.append(alert)
