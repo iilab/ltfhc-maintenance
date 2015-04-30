@@ -586,7 +586,7 @@ try {
 
     function server_ansible_wifi(callback, results) {
       var proc = null;
-      proc = spawn_sh("Connect (WiFi)", "server_ansible", 'ansible -i /vagrant/hosts_wifi.sh test_wifi -m ping', callback );
+      proc = spawn_sh("Connect (WiFi)", "server_ansible", 'cp /vagrant/hosts_wifi .; chmod +x hosts_wifi; ansible -i /vagrant/hosts_wifi test_wifi -m ping', callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
