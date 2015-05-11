@@ -22,7 +22,8 @@ var blessed = require('blessed')
   , log
   , actions
   , running // the currently running spawned children_process
-  , running_stdout;
+  , running_stdout
+  , running_stderr;
 
 var debug = process.env.DEBUG || false;
 
@@ -43,6 +44,7 @@ var actions_data = { headers: [ "Action",        "Status"]
                             , [ "Data Download", "Run to download data." ]
                             , [ "Upgrade",       "Run to upgrade the EMR software." ]
                             , [ "Diagnostics",   "Run to collect diagnostic information." ]
+                            , [ "Repair",        "Run set of repair routines." ]
                             ]
                    }
 
@@ -50,7 +52,8 @@ var actions_state_init = { connect_wifi   : "enabled"    // Connect (WiFi)
                          , connect_lan    : "enabled"    // Connect (LAN)
                          , data_download  : "disabled"   // Data Download
                          , upgrade        : "disabled"   // Upgrade
-                         , diagnostics    : "disabled" } // Diagnostics
+                         , diagnostics    : "disabled"   // Diagnostics
+                         , repairs        : "disabled" } // Repairs
 
 var current_focus = "actions"
 screen.key('tab', function(ch, key) {
@@ -301,7 +304,6 @@ try {
     var maintenance_env = process.env;
 
     maintenance_env.ANSIBLE_HOST_KEY_CHECKING = "False"
-    maintenance_env.ANSIBLE_SSH_HOST = "192.168.42.1"
 
     var spawn_opts ={ 
       cwd: "/home/vagrant",
@@ -315,6 +317,7 @@ try {
           actions_state.connect_wifi = "running";
           actions_state.connect_lan = "disabled";
           actions_state_render(actions_state);
+          maintenance_env.ANSIBLE_SSH_HOST = "192.168.42.1"
           async.auto({
               local_ping: [local_ping],
               local_ansible: ['local_ping', local_ansible],
@@ -332,7 +335,7 @@ try {
                     case "local_ansible":
                       message = (val != 0)?"{red-fg}Maintenance software problem; Check that you use the latest ltfhc-maintenance.box.{/red-fg}":""
                       return (val == 0);
-                      break;
+                      break ; 
                     case "server_ping_wifi":
                       message = (val != 0)?"{red-fg}Cannot contact the server; Check that you are connected to the 'health' wifi network.{/red-fg}":""
                       return (val == 0);
@@ -361,6 +364,7 @@ try {
                 actions_state.data_download = "enabled";
                 actions_state.upgrade = "enabled";
                 actions_state.diagnostics = "enabled";
+                actions_state.repairs = "enabled";
                 actions_state_render(actions_state);
                 action_success(action, "Connected - " + server_hostname + " / IP: " + server_ip );   
               }
@@ -371,6 +375,7 @@ try {
           actions_state.connect_lan = "running";
           actions_state.connect_wifi = "disabled";
           actions_state_render(actions_state);
+          maintenance_env.ANSIBLE_SSH_HOST = "172.16.99.1"
           async.auto({
               local_ping: [local_ping],
               local_ansible: ['local_ping', local_ansible],
@@ -417,6 +422,7 @@ try {
                 actions_state.data_download = "enabled";
                 actions_state.upgrade = "enabled";
                 actions_state.diagnostics = "enabled";
+                actions_state.repairs = "enabled";
                 actions_state_render(actions_state);
                 action_success(action, "Connected - " + server_hostname + " / IP: " + server_ip );   
               }
@@ -427,18 +433,26 @@ try {
           actions_state.data_download = "running";
           actions_state_render(actions_state);
           async.auto({
-              test_emr: [test_emr],
+              test_authentication: [test_authentication],
+              assert_admin: ['test_authentication', assert_admin ],
+              test_emr: ['assert_admin', test_emr ],
               data_download: ['test_emr', data_download],
               data_patient_count: ['data_download', data_patient_count],
               data_visit_count: ['data_patient_count', data_visit_count]
           }, function (err, results) {
               if (err) {
                 switch(err) {
+                  case "test_authentication":
+                    message = "{red-fg}Cannot authenticate to the EMR; Are you sure this is a DRC deployment?{/red-fg}"
+                    break;
+                  case "assert_admin":
+                    message = "{red-fg}Cannot authenticate to the EMR; Are you sure this is a DRC deployment?{/red-fg}"
+                    break;
                   case "test_emr":
-                    message = "{red-fg}Cannot connect to the EMR;{/red-fg}"
+                    message = "{red-fg}Cannot connect to the EMR; Are you sure this is a DRC deployment?{/red-fg}"
                     break;
                   case "data_download":
-                    message = "{red-fg}Cannot download data;{/red-fg}"
+                    message = "{red-fg}Cannot download data; Are you sure this is a DRC deployment?{/red-fg}"
                     break;
                   case "data_patient_count":
                     message = "{red-fg}Cannot inspect data; Are you sure this is a DRC deployment?{/red-fg}"
@@ -520,7 +534,11 @@ try {
                 _(results).every(function(val, key) {
                   switch(key) {
                     case "diagnostics":
-                      message = (val != 0)?"{red-fg}Cannot run diagnostics; Check that...{/red-fg}":""
+                      message = (val != 0)?"{red-fg}Cannot run diagnostics;"+ results.diagnostics +" {/red-fg}":""
+                      return (val == 0);
+                      break;
+                    case "reports":
+                      message = (val != 0)?"{red-fg}Cannot run diagnostic report; {/red-fg}":""
                       return (val == 0);
                       break;
                   }
@@ -532,7 +550,39 @@ try {
                 // Callback with the results.
                 actions_state.diagnostics = "enabled";
                 actions_state_render(actions_state);
-                action_success(action, "Diagnostic results captured ; " + results.data_download + ".tar.gz file created");   
+                action_success(action, "Diagnostic results captured ; " + results.reports + ".tar.gz file created");   
+              }
+          });
+          break;          
+      case "Repairs":
+          action_start(action);
+          actions_state.repairs = "running";
+          actions_state_render(actions_state);
+          async.auto({
+              repairs: [repairs],
+              repairs_report: ['repairs', repairs_report]
+          }, function (err, results) {
+              if (err) {
+                _(results).every(function(val, key) {
+                  switch(key) {
+                    case "repairs":
+                      message = (val != 0)?"{red-fg}Cannot run repairs; {/red-fg}":""
+                      return (val == 0);
+                      break;
+                    case "repairs_report":
+                      message = (val != 0)?"{red-fg}Cannot run repairs report; {/red-fg}":""
+                      return (val == 0);
+                      break;
+                  }
+                })
+                action_error(action, message);
+                actions_state.repairs = "enabled";
+                actions_state_render(actions_state);
+              } else {
+                // Callback with the results.
+                actions_state.repairs = "enabled";
+                actions_state_render(actions_state);
+                action_success(action, "Repair results captured ; " + results.repairs_report + ".tar.gz file created");   
               }
           });
           break;          
@@ -660,15 +710,45 @@ try {
     }
 
 
+    // Authentication Diagnostic
+
+    function test_authentication(callback, results) {
+      var proc = null;
+      proc = spawn_sh("Data Download", "test_authentication", "AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1); curl -k https://$AUTH@" + server_ip, callback );
+      proc.on('close', function(code) {
+        if (code != 0) {
+          log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+          callback("test_authentication", code)
+        } else {
+          log_log("--- command success  --- (" + code + ")");
+          callback(null, running_stdout.replace('\n',''))
+        }
+      });
+    }
+
+    function assert_admin(callback, results) {
+      var proc = null;
+      proc = spawn_sh("Data Download", "assert_admin", "AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1) bash /vagrant/auth.sh", callback );
+      proc.on('close', function(code) {
+        if (code != 0) {
+          log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+          callback("assert_admin", code)
+        } else {
+          log_log("--- command success  --- (" + code + ")");
+          callback(null, running_stdout.replace('\n',''))
+        }
+      });
+    }
     // Data Download
 
     function test_emr(callback, results) {
       var proc = null;
-      proc = spawn_sh("Data Download", "test_emr", "kanso listdb https://" + server_ip, callback);
+      //proc = spawn_sh("Data Download", "test_emr", "kanso listdb https://" + server_ip, callback);
+      proc = spawn_sh("Data Download", "test_emr", "AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1);  curl -k https://$AUTH@" + server_ip + "/_all_dbs", callback);
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback(code, code)
+          callback("test_emr", code)
         } else {
           if (running_stdout.indexOf('emr_' + server_hostname) > -1) {
             log_log("--- command success  --- (emr_" + server_hostname + " db found)");
@@ -683,11 +763,11 @@ try {
 
     function data_download(callback, results) {
       var proc = null;
-      var data_filename = server_hostname + "-" + new Date().toISOString().
+      var data_filename = server_hostname + "-data-" + new Date().toISOString().
                       replace(/[-:]/g, '').      // remove - and :
                       replace(/T/, '_').      // replace T with an underscore
                       replace(/\..+/, '')     // delete the dot and everything after;
-      proc = spawn_sh("Data Download", "data_download", 'curl -k -o /vagrant/' + data_filename + '.json -X GET https://' + server_ip + '/emr_' + server_hostname + '/_all_docs\?include_docs\=true', callback);
+      proc = spawn_sh("Data Download", "data_download", "AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1);" + 'curl -k -o /vagrant/' + data_filename + '.json -X GET https://' + server_ip + '/emr_' + server_hostname + '/_all_docs\?include_docs\=true', callback);
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -730,10 +810,8 @@ try {
     }
 
 
-
     // Upgrade
 
-    // relink kanso.json
 
     function test_kansorc(callback, results) {
       var proc = null;
@@ -763,6 +841,8 @@ try {
       });
     }
 
+    // relink kanso.json
+
     function prepare_kanso_config(callback, results) {
       var proc = null;
       proc = spawn_sh("Upgrade", "prepare_kanso_config", "cp /vagrant/kanso.json." + server_hostname + " /vagrant/ltfhc-next/kanso.json", callback);
@@ -779,14 +859,14 @@ try {
 
     function test_emr_version(callback, results) {
       var proc = null;
-      proc = spawn_sh("Upgrade", "test_emr_version", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\' | awk -F\'\\",\\"\' \'{print $2}\' | awk -F\'\\":\\"\' \'{print $2}\' ', callback);
+      proc = spawn_sh("Upgrade", "test_emr_version", "AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1);" + 'curl -k --connect-timeout 10 -sS https://$AUTH@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\' | awk -F\'\\",\\"\' \'{print $2}\' | awk -F\'\\":\\"\' \'{print $2}\' ', callback);
       proc.on('close', function(code) {
         version_result = running_stdout.trim();
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
           callback("test_emr_version", version_result)
         } else {
-          if (running_stdout == "4.2.0") {
+          if (running_stdout != "0.5.0") {
             log_log("--- command success  --- (" + code + ")");
             callback(null, version_result)
           } else {
@@ -813,7 +893,7 @@ try {
 
     function test_emr_upgrade(callback, results) {
       var proc = null;
-      proc = spawn_sh("Upgrade", "test_emr_upgrade", 'curl -k --connect-timeout 10 -sS https://demo:demo@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\"0.5.0\"\'', callback);
+      proc = spawn_sh("Upgrade", "test_emr_upgrade", "AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1);" + 'curl -k --connect-timeout 10 -sS https://$AUTH@' + server_ip + '/emr_' + server_hostname + '/_design/emr/modules.js | grep -e \'\"name\":\"emr\",\"version\":\"0.5.0\"\'', callback);
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
@@ -829,11 +909,11 @@ try {
 
     function diagnostics(callback, results) {
       var proc = null;
-      proc = spawn_sh("Diagnostics", "diagnostics", 'cd /vagrant/ltfhc-config; ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t diagnose -l ' + server_hostname, callback );
+      proc = spawn_sh("Diagnostics", "diagnostics", "cd /vagrant/ltfhc-config; SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t diagnose -l ' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("diagnostics", code)
+          callback("diagnostics", running_stdout)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, code)
@@ -843,11 +923,31 @@ try {
 
     function reports(callback, results) {
       var proc = null;
-      proc = spawn_sh("Diagnostics", "reports", 'tar cvzf /vagrant/lthfc-config/reports/' + server_connection + ' ' + server_hostname + '.tgz', callback );
+      var data_filename = server_hostname + "-diagnostic-" + new Date().toISOString().
+                         replace(/[-:]/g, '').      // remove - and :
+                         replace(/T/, '_').      // replace T with an underscore
+                         replace(/\..+/, '')     // delete the dot and everything after;
+      proc = spawn_sh("Diagnostics", "reports", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
           callback("diagnostics", code)
+        } else {
+          log_log("--- command success  --- (" + code + ")");
+          callback(null, data_filename)
+        }
+      });
+    }
+
+    // Repairs
+
+    function repairs(callback, results) {
+      var proc = null;
+      proc = spawn_sh("Repairs", "repairs", "cd /vagrant/ltfhc-config; SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t repair -l ' + server_hostname, callback );
+      proc.on('close', function(code) {
+        if (code != 0) {
+          log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+          callback("repairs", code)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, code)
@@ -855,6 +955,23 @@ try {
       });
     }
 
+    function repairs_report(callback, results) {
+      var proc = null;
+      var data_filename = server_hostname + "-repair-" + new Date().toISOString().
+                         replace(/[-:]/g, '').      // remove - and :
+                         replace(/T/, '_').      // replace T with an underscore
+                         replace(/\..+/, '')     // delete the dot and everything after;
+      proc = spawn_sh("Repairs", "repairs_report", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
+      proc.on('close', function(code) {
+        if (code != 0) {
+          log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+          callback("repairs_report", code)
+        } else {
+          log_log("--- command success  --- (" + code + ")");
+          callback(null, data_filename)
+        }
+      });
+    }
 
 
     // Check time 
@@ -945,8 +1062,10 @@ try {
         }
       });
 
+      running_stderr = "";
       __(proc.stderr).each(function(i){
         var str = i.toString()
+        running_stderr += str;
         var arr = str.match(/[^\r\n]+/gm);
         if (arr) {
           __(arr).each(function(i) {
