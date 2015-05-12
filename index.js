@@ -527,18 +527,23 @@ try {
           actions_state.diagnostics = "running";
           actions_state_render(actions_state);
           async.auto({
-              diagnostics: [diagnostics],
-              reports: ['diagnostics', reports]
+              reports: reports,
+              diagnostics: ['reports', diagnostics],
+              diags_reports: ['diagnostics', diags_reports]
           }, function (err, results) {
               if (err) {
                 _(results).every(function(val, key) {
                   switch(key) {
-                    case "diagnostics":
-                      message = (val != 0)?"{red-fg}Cannot run diagnostics;"+ results.diagnostics +" {/red-fg}":""
+                    case "reports":
+                      message = (val != 0)?"{red-fg}Problem generating reports;{/red-fg}":""
                       return (val == 0);
                       break;
-                    case "reports":
-                      message = (val != 0)?"{red-fg}Cannot run diagnostic report; {/red-fg}":""
+                    case "diagnostics":
+                      message = (val != 0)?"{red-fg}"+ results.diagnostics +" {/red-fg}":""
+                      return (val == 0);
+                      break;
+                    case "diags_reports":
+                      message = (val != 0)?"{red-fg}Cannot transfer diagnostic reports; {/red-fg}":""
                       return (val == 0);
                       break;
                   }
@@ -907,13 +912,13 @@ try {
 
     // Diagnostics
 
-    function diagnostics(callback, results) {
+    function reports(callback, results) {
       var proc = null;
-      proc = spawn_sh("Diagnostics", "diagnostics", "cd /vagrant/ltfhc-config; SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t diagnose -l ' + server_hostname, callback );
+      proc = spawn_sh("Diagnostics", "reports", "cd /vagrant/ltfhc-config; PYTHONUNBUFFERED=true SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t report -l ' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("diagnostics", running_stdout)
+          callback("reports", code)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, code)
@@ -921,17 +926,37 @@ try {
       });
     }
 
-    function reports(callback, results) {
+    function diagnostics(callback, results) {
+      var proc = null;
+      proc = spawn_sh("Diagnostics", "diagnostics", "cd /vagrant/ltfhc-config; PYTHONUNBUFFERED=true SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t diagnose -l ' + server_hostname, callback );
+      proc.on('close', function(code) {
+        if (code != 0) {
+          failed_message = running_stdout.match(/{"failed": true}\smsg: (\w|\W)*?$/gm)
+          if (failed_message) {
+            failed_message = "Please run Repair; " + failed_message.toString().replace(/{"failed": true}\smsg: /, '')
+          } else {
+            failed_message = "Unknown problem; " + running_stdout.match(/fatal: (\w|\W)*?$/gm)
+          }
+          log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+          callback("diagnostics", failed_message)
+        } else {
+          log_log("--- command success  --- (" + code + ")");
+          callback(null, code)
+        }
+      });
+    }
+
+    function diags_reports(callback, results) {
       var proc = null;
       var data_filename = server_hostname + "-diagnostic-" + new Date().toISOString().
                          replace(/[-:]/g, '').      // remove - and :
                          replace(/T/, '_').      // replace T with an underscore
                          replace(/\..+/, '')     // delete the dot and everything after;
-      proc = spawn_sh("Diagnostics", "reports", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
+      proc = spawn_sh("Diagnostics", "diags_reports", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("diagnostics", code)
+          callback("diags_reports", code)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, data_filename)
@@ -943,7 +968,7 @@ try {
 
     function repairs(callback, results) {
       var proc = null;
-      proc = spawn_sh("Repairs", "repairs", "cd /vagrant/ltfhc-config; SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t repair -l ' + server_hostname, callback );
+      proc = spawn_sh("Repairs", "repairs", "cd /vagrant/ltfhc-config; PYTHONUNBUFFERED=true SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t repair -l ' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
