@@ -44,7 +44,7 @@ var actions_data = { headers: [ "Action",        "Status"]
                             , [ "Data Download", "Run to download data." ]
                             , [ "Upgrade",       "Run to upgrade the EMR software." ]
                             , [ "Diagnostics",   "Run to collect diagnostic information." ]
-                            , [ "Repair",        "Run set of repair routines." ]
+                            , [ "Repairs",        "Run set of repair routines." ]
                             ]
                    }
 
@@ -529,7 +529,7 @@ try {
           async.auto({
               reports: reports,
               diagnostics: ['reports', diagnostics],
-              diags_reports: ['diagnostics', diags_reports]
+              fetch_diags_reports: ['diagnostics', fetch_diags_reports]
           }, function (err, results) {
               if (err) {
                 _(results).every(function(val, key) {
@@ -555,7 +555,7 @@ try {
                 // Callback with the results.
                 actions_state.diagnostics = "enabled";
                 actions_state_render(actions_state);
-                action_success(action, "Diagnostic results captured ; " + results.reports + ".tar.gz file created");   
+                action_success(action, "Diagnostic results captured ; " + results.fetch_diags_reports + ".tar.gz file created");   
               }
           });
           break;          
@@ -565,17 +565,22 @@ try {
           actions_state_render(actions_state);
           async.auto({
               repairs: [repairs],
-              repairs_report: ['repairs', repairs_report]
+              repairs_reports: ['repairs', repairs_reports],
+              fetch_repairs_reports: ['repairs_reports', fetch_repairs_reports]
           }, function (err, results) {
               if (err) {
                 _(results).every(function(val, key) {
                   switch(key) {
                     case "repairs":
-                      message = (val != 0)?"{red-fg}Cannot run repairs; {/red-fg}":""
+                      message = (val != 0)?"{red-fg}" + results.repairs + "{/red-fg}":""
                       return (val == 0);
                       break;
-                    case "repairs_report":
-                      message = (val != 0)?"{red-fg}Cannot run repairs report; {/red-fg}":""
+                    case "repairs_reports":
+                      message = (val != 0)?"{red-fg}Problem generating reports; {/red-fg}":""
+                      return (val == 0);
+                      break;
+                    case "fetch_repairs_reports":
+                      message = (val != 0)?"{red-fg}Cannot transfer repairs report; {/red-fg}":""
                       return (val == 0);
                       break;
                   }
@@ -587,7 +592,7 @@ try {
                 // Callback with the results.
                 actions_state.repairs = "enabled";
                 actions_state_render(actions_state);
-                action_success(action, "Repair results captured ; " + results.repairs_report + ".tar.gz file created");   
+                action_success(action, "Repair results captured ; " + results.fetch_repairs_reports + ".tar.gz file created");   
               }
           });
           break;          
@@ -946,17 +951,17 @@ try {
       });
     }
 
-    function diags_reports(callback, results) {
+    function fetch_diags_reports(callback, results) {
       var proc = null;
       var data_filename = server_hostname + "-diagnostic-" + new Date().toISOString().
                          replace(/[-:]/g, '').      // remove - and :
                          replace(/T/, '_').      // replace T with an underscore
                          replace(/\..+/, '')     // delete the dot and everything after;
-      proc = spawn_sh("Diagnostics", "diags_reports", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
+      proc = spawn_sh("Diagnostics", "fetch_diags_reports", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar --ignore-failed-read -cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("diags_reports", code)
+          callback("fetch_diags_reports", code)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, data_filename)
@@ -971,8 +976,14 @@ try {
       proc = spawn_sh("Repairs", "repairs", "cd /vagrant/ltfhc-config; PYTHONUNBUFFERED=true SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t repair -l ' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
+          failed_message = running_stdout.match(/{"failed": true}\smsg: (\w|\W)*?$/gm)
+          if (failed_message) {
+            failed_message = "CRITICAL ERROR REPAIRS FAILED; " + failed_message.toString().replace(/{"failed": true}\smsg: /, '')
+          } else {
+            failed_message = "CRITICAL ERROR REPAIRS FAILED; " + running_stdout.match(/fatal: (\w|\W)*?$/gm)
+          }
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("repairs", code)
+          callback("repairs", failed_message)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, code)
@@ -980,28 +991,37 @@ try {
       });
     }
 
-    function repairs_report(callback, results) {
+    function repairs_reports(callback, results) {
       var proc = null;
-      var data_filename = server_hostname + "-repair-" + new Date().toISOString().
-                         replace(/[-:]/g, '').      // remove - and :
-                         replace(/T/, '_').      // replace T with an underscore
-                         replace(/\..+/, '')     // delete the dot and everything after;
-      proc = spawn_sh("Repairs", "repairs_report", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
+      proc = spawn_sh("Repairs", "repairs_reports", "cd /vagrant/ltfhc-config; PYTHONUNBUFFERED=true SERVER_IP=" + server_ip + " AUTH=$(cat /vagrant/kansorc.txt | grep -oP '(?<=//).*(?=@)' | tail -n1)" + ' ansible-playbook -i ~/hosts_' + server_connection + ' playbook/site.yml -t report -l ' + server_hostname, callback );
       proc.on('close', function(code) {
         if (code != 0) {
           log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
-          callback("repairs_report", code)
+          callback("repairs_reports", code)
+        } else {
+          log_log("--- command success  --- (" + code + ")");
+          callback(null, code)
+        }
+      });
+    }
+
+    function fetch_repairs_reports(callback, results) {
+      var proc = null;
+      var data_filename = server_hostname + "-repairs-" + new Date().toISOString().
+                         replace(/[-:]/g, '').      // remove - and :
+                         replace(/T/, '_').      // replace T with an underscore
+                         replace(/\..+/, '')     // delete the dot and everything after;
+      proc = spawn_sh("Repairs", "fetch_repairs_reports", 'cp /vagrant/ltfhc-config/ansible.log /vagrant/; tar cvzf /vagrant/' + data_filename + '.tgz /vagrant/ltfhc-config/reports/' + server_hostname, callback );
+      proc.on('close', function(code) {
+        if (code != 0) {
+          log_log("{red-fg}--- command error --- (" + code + "){/red-fg}"); 
+          callback("fetch_repairs_reports", code)
         } else {
           log_log("--- command success  --- (" + code + ")");
           callback(null, data_filename)
         }
       });
     }
-
-
-    // Check time 
-
-    // Get users
 
     // Utility functions
 
